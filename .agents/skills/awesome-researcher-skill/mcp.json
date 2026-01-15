@@ -1,0 +1,50 @@
+{
+  "sequential-thinking": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-sequential-thinking"
+    ]
+  },
+  "get-notes-multi-kbs": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "get_notebook_mcp_server"
+    ],
+    "env": {
+      "GET_KNOWLEDGE_BASES": "${GET_KNOWLEDGE_BASES}"
+    }
+  },
+  "pubmed-data-server": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "mcp-pubmed-llm-server"
+    ],
+    "env": {
+      "ABSTRACT_MODE": "deep",
+      "FULLTEXT_MODE": "enabled",
+      "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+      "PUBMED_EMAIL": "${PUBMED_EMAIL}"
+    }
+  },
+  "knows-mcp": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "knows-mcp-server"
+    ],
+    "env": {
+      "DEFAULT_DATA_SCOPE": "GUIDE,PAPER,MEETING,PAPER_CN",
+      "KNOWS_API_BASE_URL": "${KNOWS_API_BASE_URL}",
+      "KNOWS_API_KEY": "${KNOWS_API_KEY}"
+    }
+  },
+  "metaso": {
+    "url": "https://metaso.cn/api/mcp",
+    "headers": {
+      "Authorization": "Bearer ${METASO_API_KEY}"
+    }
+  }
+}

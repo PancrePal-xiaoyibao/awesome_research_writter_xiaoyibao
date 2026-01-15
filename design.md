@@ -5,7 +5,11 @@
 > - v0.2: 增强MCP工具集成，优化路由策略 (design_v0.2.md)
 > - v0.3: 精简文档，MCP配置外置引用 (design_v0.3.md)
 > - v0.4: Writer多风格支持，优化开发建议 (design_v0.4.md)
-> - v0.5: 更新示例为RMC6236临床研究场景 (当前版本)
+> - v0.5: 更新示例为RMC6236临床研究场景 (design.md)
+> - v0.6: 新增MCP诊断检查Skill，完善系统可靠性 (当前版本)
+> - v0.7: 增加安全配置规范，完善MCP配置分离原则
+> - v0.8: 新增mcp-check集成规范，完善技能协同机制
+> - v0.9: 新增输出文件管理，统一生成报告目录
 
 > **MCP配置文件**: `/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/mcp_toolkits.json`
 
@@ -245,20 +249,469 @@ if topic_type == "medical":
 
 ---
 
-## 5. 多角色 Skills 需求（保持不变，增加MCP绑定）
+## 5. 系统诊断与检查（v0.6 新增）
 
-### 5.1 Researcher Skill
+### 5.0 MCP Check Skill（前置诊断）
+
+**目的**：快速诊断MCP服务连接状态，防止后续工作因依赖缺失而失败。
+
+**执行时机**：
+- ✅ 首次使用Researcher/Writer/Validator前（建议自动触发）
+- ✅ 用户主动诊断请求（"检查MCP"、"MCP诊断"）
+- ✅ Skill执行失败时的故障排查
+
+**检查清单**（并行执行，3-5秒内完成）：
+
+| MCP服务 | 优先级 | 检查项 | 超时 |
+|---------|--------|--------|------|
+| `get-notes-multi-kbs` | ★★★ | 连接+认证 | 5s |
+| `metaso` | ★★★ | HTTP API | 3s |
+| `pubmed-data-server` | ★★★ | 本地进程 | 5s |
+| `knows-mcp` | ★★ | NPM包+API | 5s |
+| `sequential-thinking` | ★ | NPM包 | 3s |
+
+**输出格式**：
+
+✅ **全部正常**：
+```
+所有关键服务激活 ✅
+├─ get-notes-multi-kbs:   ✅ (3个知识库可用)
+├─ metaso:                ✅ (响应0.8s)
+├─ pubmed-data-server:    ✅ (本地服务就绪)
+├─ knows-mcp:             ✅ (已连接)
+└─ sequential-thinking:   ✅ (NPM包就绪)
+
+结论: 可以安全启动Researcher/Writer/Validator skill
+```
+
+⚠️ **部分故障**：
+```
+需要修复的服务:
+├─ pubmed-data-server:  ❌ 无法连接
+│  └─ 修复: node /path/to/index.js
+├─ knows-mcp:           ⚠️ API密钥失效
+│  └─ 修复: 更新mcp.json中的KNOWS_API_KEY
+└─ 降级方案: 医学研究模式改为仅用 metaso + get-notes-multi-kbs
+```
+
+**降级策略**：
+- 若 `pubmed-data-server` 故障 → 医学研究用 metaso + knows-mcp
+- 若 `knows-mcp` 故障 → 验证能力减弱，但基础功能保留
+- 若 `get-notes-multi-kbs` 故障 → **不建议继续**（一手知识丢失）
+- 若 `metaso` 故障且其他离线服务故障 → **不建议继续**（外部信息来源丢失）
+
+---
+
+## 6. 安全配置规范（v0.7 新增）
+
+### 6.1 环境变量安全原则
+
+**目的**：防止敏感信息（API密钥、认证令牌等）在代码库中泄露。
+
+**实施规范**：
+1. 所有敏感信息存储在 `.env` 文件中
+2. 配置文件中使用 `${VARIABLE_NAME}` 语法引用环境变量
+3. `.env` 文件加入 `.gitignore`，不提交到代码仓库
+4. 提供 `.env.example` 模板文件供用户参考
+
+**示例**：
+```bash
+# .env 文件（不提交到仓库）
+GET_KNOWLEDGE_BASES='[{"id":"demo_group","name":"my_knowledge_base",...}]'
+PUBMED_API_KEY=your_actual_api_key_here
+METASO_API_KEY=mk-your_metaso_key
+KNOWS_API_KEY=your_knows_key
+TAVILY_API_KEY=tvly-your_tavily_key
+```
+
+```json
+// mcp_toolkits.json（提交到仓库）
+{
+  "get-notes-multi-kbs": {
+    "env": {
+      "GET_KNOWLEDGE_BASES": "${GET_KNOWLEDGE_BASES}"
+    }
+  },
+  "pubmed-data-server": {
+    "env": {
+      "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+      "PUBMED_EMAIL": "${PUBMED_EMAIL}"
+    }
+  }
+}
+```
+
+### 6.2 MCP 配置分离原则（v0.1 原则回归）
+
+**全局配置文件** (`mcp_toolkits.json`)：
+- 作用：定义系统中所有可用的 MCP 服务器实例
+- 职责：提供 MCP 服务的启动命令、参数和基础配置
+- 范围：整个项目共享，所有 Skills 可访问的服务注册表
+
+**技能专用配置文件** (各 agent 下的 `mcp.json`)：
+- 作用：定义特定技能可访问的 MCP 服务和工具
+- 职责：控制技能对 MCP 服务的访问权限，指定可用工具集
+- 范围：单一技能专用，实现权限隔离
+
+**配置分离优势**：
+1. **安全性**：每个技能只能访问其所需的 MCP 服务，而非全部服务
+2. **模块化**：各技能独立配置，降低耦合度
+3. **可维护性**：全局配置统一管理 MCP 服务定义
+4. **权限控制**：精细控制每个技能的访问范围
+
+**示例**：
+```json
+// mcp_toolkits.json - 全局定义
+{
+  "mcpServers": {
+    "get-notes-multi-kbs": { /* 完整服务定义 */ },
+    "pubmed-data-server": { /* 完整服务定义 */ },
+    "metaso": { /* 完整服务定义 */ },
+    "knows-mcp": { /* 完整服务定义 */ }
+  }
+}
+```
+
+```json
+// .agents/skills/getbiji-researcher-skill/mcp.json - 权限控制
+{
+  "get-notes-multi-kbs": {
+    "includeTools": ["searchNotes", "getNoteById", "listByTag", "listKnowledgeBases"]
+  },
+  "metaso": {
+    "includeTools": ["search"]
+  },
+  "pubmed-data-server": {
+    "includeTools": ["searchPubMed", "getArticleDetails", "getFullText"]
+  },
+  "knows-mcp": {
+    "includeTools": ["searchGuides", "searchPapers", "getGuideDetails"]
+  }
+}
+```
+
+```json
+// .agents/skills/getbiji-writer-skill/mcp.json - 限制访问
+{
+  "get-notes-multi-kbs": {
+    "includeTools": ["searchNotes", "getNoteById"]
+  },
+  "metaso": {
+    "includeTools": ["search"]
+  }
+}
+```
+
+### 6.3 安全最佳实践
+
+**开发阶段**：
+1. 使用 `.env.example` 提供变量模板
+2. 配置文件中只使用环境变量引用
+3. 定期审查配置文件，确保无硬编码敏感信息
+
+**部署阶段**：
+1. 确保部署环境包含正确的 `.env` 文件
+2. 验证环境变量是否正确加载
+3. 测试 MCP 服务连接性
+
+**版本控制**：
+1. `.env` 文件必须加入 `.gitignore`
+2. 只提交使用环境变量引用的配置文件
+3. 提供清晰的部署说明文档
+
+---
+
+## 7. MCP Check 技能集成规范（v0.8 新增）
+
+### 7.1 mcp-check 技能概述
+
+**作用**：MCP 服务健康检查与启动技能，确保所有必需的 MCP 服务处于活动状态，为其他技能提供可靠的服务基础。
+
+**位置**：`.agents/skills/mcp-check/`
+
+**组件**：
+- `SKILL.md` - 技能定义和说明
+- `mcp.json` - MCP 服务配置
+- `reference/` - 故障排查和启动脚本
+
+### 7.2 集成策略
+
+#### 7.2.1 前置检查机制
+
+```
+用户请求 → mcp-check → 服务状态检查 → [条件]启动服务 → 其他技能执行
+                    ↓
+                 状态报告 ← 可选的主动诊断
+```
+
+#### 7.2.2 自动集成点
+
+1. **Researcher Skill 启动前**：
+   - 检查 `get-notes-multi-kbs`, `metaso`, `pubmed-data-server`, `knows-mcp`
+   - 确保所有必需服务就绪
+
+2. **Writer Skill 启动前**：
+   - 检查 `get-notes-multi-kbs`, `metaso`
+   - 确保基础服务可用
+
+3. **Validator Skill 启动前**：
+   - 检查 `get-notes-multi-kbs`, `knows-mcp`, `pubmed-data-server`
+   - 确保验证服务就绪
+
+#### 7.2.3 手动集成点
+
+- 用户主动调用 `@mcp-check` 进行健康检查
+- 系统启动后自动运行一次健康检查
+- 故障恢复后验证服务状态
+
+### 7.3 集成配置
+
+#### 7.3.1 mcp.json 配置示例
+
+```json
+{
+  "get-notes-multi-kbs": {
+    "command": "npx",
+    "args": ["-y", "get_notebook_mcp_server"],
+    "env": {
+      "GET_KNOWLEDGE_BASES": "${GET_KNOWLEDGE_BASES}"
+    }
+  },
+  "pubmed-data-server": {
+    "command": "npx",
+    "args": ["-y", "mcp-pubmed-llm-server"],
+    "env": {
+      "ABSTRACT_MODE": "deep",
+      "FULLTEXT_MODE": "enabled",
+      "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+      "PUBMED_EMAIL": "${PUBMED_EMAIL}"
+    }
+  },
+  "knows-mcp": {
+    "command": "npx",
+    "args": ["-y", "knows-mcp-server"],
+    "env": {
+      "DEFAULT_DATA_SCOPE": "GUIDE,PAPER,MEETING,PAPER_CN",
+      "KNOWS_API_BASE_URL": "${KNOWS_API_BASE_URL}",
+      "KNOWS_API_KEY": "${KNOWS_API_KEY}"
+    }
+  },
+  "metaso": {
+    "url": "https://metaso.cn/api/mcp",
+    "headers": {
+      "Authorization": "Bearer ${METASO_API_KEY}"
+    }
+  },
+  "sequential-thinking": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+  }
+}
+```
+
+### 7.4 与其他技能的协作流程
+
+#### 7.4.1 服务启动流程
+
+```
+1. [并行] 检查所有 MCP 服务状态
+2. [条件] 启动未运行的服务
+3. [等待] 服务就绪延时
+4. [验证] 服务可用性确认
+5. [输出] 检查报告
+```
+
+#### 7.4.2 故障处理策略
+
+| 服务 | 故障影响 | 降级策略 |
+|------|----------|----------|
+| `get-notes-multi-kbs` | 核心知识源丢失 | **不建议继续** |
+| `metaso` | AI搜索能力丧失 | 使用备用搜索 |
+| `pubmed-data-server` | 医学文献检索受限 | 医学研究降级 |
+| `knows-mcp` | 医学验证能力减弱 | 验证能力降级 |
+| `sequential-thinking` | 复杂推理降级 | 简单推理模式 |
+
+### 7.5 输出格式规范
+
+#### 7.5.1 健康检查报告
+
+```
+MCP 服务健康检查报告
+┌─────────────────────────────┐
+│  所有 MCP 服务正常运行      │
+├─────────────────────────────┤
+│  ✓ get-notes-multi-kbs      │
+│  ✓ metaso (HTTP)            │
+│  ✓ pubmed-data-server       │
+│  ✓ knows-mcp                │
+│  ✓ sequential-thinking      │
+└─────────────────────────────┘
+
+结论: 可以安全启动其他技能
+```
+
+#### 7.5.2 故障报告
+
+```
+MCP 服务健康检查报告
+┌─────────────────────────────┐
+│  检测到 MCP 服务异常        │
+├─────────────────────────────┤
+│  ✅ get-notes-multi-kbs     │
+│  ❌ pubmed-data-server      │
+│  ⚠️  knows-mcp (响应慢)     │
+└─────────────────────────────┘
+
+故障服务处理:
+- pubmed-data-server: 启动中...
+- knows-mcp: 重新连接中...
+
+重试后状态:
+- pubmed-data-server: ✅ 已启动
+- knows-mcp: ✅ 已恢复
+```
+
+### 7.6 与系统集成
+
+#### 7.6.1 前置检查集成
+
+```
+其他技能运行前 → 调用 mcp-check → 验证结果 → 继续执行
+```
+
+#### 7.6.2 自动重试机制
+
+- 启动失败时自动重试 3 次
+- 间隔 2 秒
+- 每次重试后验证状态
+
+---
+
+## 8. 输出文件管理规范（v0.9 新增）
+
+### 8.1 输出目录结构
+
+**默认输出路径**：`/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/generated_reports/`
+
+**目录结构**：
+```
+generated_reports/
+├── research_[timestamp]_[topic].md          # 研究报告
+├── scan_analysis_[timestamp]_[topic].json   # SCAN分析数据
+├── evidence_trail_[timestamp]_[topic].json  # 证据链数据
+├── writing_[timestamp]_[style]_[topic].md   # 写作输出
+├── outline_[timestamp]_[style]_[topic].json # 写作大纲
+├── references_[timestamp]_[style]_[topic].json # 引用数据
+├── validation_[timestamp]_[topic].md        # 验证报告
+├── quality_score_[timestamp]_[topic].json   # 质量评分数据
+└── risk_assessment_[timestamp]_[topic].json # 风险评估数据
+```
+
+### 8.2 文件命名规范
+
+#### 8.2.1 时间戳格式
+- **格式**：`YYYYMMDDHHMM` (例如：202412011530)
+- **用途**：确保文件唯一性，便于排序和追踪
+
+#### 8.2.2 文件类型标识
+- **research_**：研究技能输出
+- **writing_**：写作技能输出  
+- **validation_**：验证技能输出
+- **scan_analysis_**：SCAN框架分析数据
+- **outline_**：写作大纲
+- **references_**：引用数据
+- **evidence_trail_**：证据链数据
+- **quality_score_**：质量评分
+- **risk_assessment_**：风险评估
+
+#### 8.2.3 内容主题标识
+- 使用下划线分隔的关键词描述内容主题
+- 避免特殊字符，使用字母数字和下划线
+- 限制长度不超过50个字符
+
+### 8.3 输出管理策略
+
+#### 8.3.1 自动清理策略
+- **保留期限**：默认保留30天内的文件
+- **定期清理**：每周自动清理过期文件
+- **大文件处理**：超过10MB的文件进行压缩存储
+
+#### 8.3.2 文件备份
+- **本地备份**：每日生成备份文件
+- **云同步**：可选的云存储同步功能
+- **版本控制**：重要文件的版本历史
+
+### 8.4 技能输出配置
+
+#### 8.4.1 Researcher Skill 输出
+```yaml
+output_config:
+  default_path: "/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/generated_reports/"
+  file_patterns:
+    - "research_{timestamp}_{topic}.md"
+    - "scan_analysis_{timestamp}_{topic}.json" 
+    - "evidence_trail_{timestamp}_{topic}.json"
+  retention_days: 30
+```
+
+#### 8.4.2 Writer Skill 输出
+```yaml
+output_config:
+  default_path: "/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/generated_reports/"
+  file_patterns:
+    - "writing_{timestamp}_{style}_{topic}.md"
+    - "outline_{timestamp}_{style}_{topic}.json"
+    - "references_{timestamp}_{style}_{topic}.json"
+  retention_days: 30
+```
+
+#### 8.4.3 Validator Skill 输出
+```yaml
+output_config:
+  default_path: "/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/generated_reports/"
+  file_patterns:
+    - "validation_{timestamp}_{topic}.md"
+    - "quality_score_{timestamp}_{topic}.json"
+    - "risk_assessment_{timestamp}_{topic}.json"
+  retention_days: 30
+```
+
+### 8.5 输出质量保证
+
+#### 8.5.1 文件完整性检查
+- **大小验证**：确保文件非空
+- **格式验证**：检查文件格式正确性
+- **内容验证**：验证关键字段存在
+
+#### 8.5.2 错误处理
+- **写入失败**：提供备选路径或返回内容
+- **权限问题**：提示用户检查目录权限
+- **磁盘空间**：检查可用空间后再写入
+
+---
+
+## 9. 多角色 Skills 需求（保持不变，增加MCP绑定）
+
+### 9.1 Researcher Skill
 
 **绑定MCP**：
 - 必选：`get-notes-multi-kbs`, `metaso`
 - 医学类追加：`pubmed-data-server`, `knows-mcp`
 - 复杂问题：`sequential-thinking`
 
-### 5.2 Writer Skill
+**集成要求**：运行前必须通过 `mcp-check` 健康检查
+
+**输出配置**：保存到 `generated_reports/` 目录
+
+### 9.2 Writer Skill
 
 **绑定MCP**：
 - 必选：`get-notes-multi-kbs`（引用原始笔记内容）
 - 可选：`metaso`（补充写作素材）
+
+**集成要求**：运行前必须通过 `mcp-check` 健康检查
+
+**输出配置**：保存到 `generated_reports/` 目录
 
 **写作风格**：
 
@@ -277,21 +730,25 @@ if topic_type == "medical":
 未指定 → 默认科普风格
 ```
 
-### 5.3 Validator Skill
+### 9.3 Validator Skill
 
 **绑定MCP**：
 - 必选：`get-notes-multi-kbs`, `knows-mcp`（验证依据）
 - 医学验证：`pubmed-data-server`
 
+**集成要求**：运行前必须通过 `mcp-check` 健康检查
+
+**输出配置**：保存到 `generated_reports/` 目录
+
 ---
 
-## 6. 工具配置
+## 10. 工具配置
 
 > **配置文件路径**: `/Users/qinxiaoqiang/Downloads/advance_get_biji_skills/mcp_toolkits.json`
 >
 > 开发时读取该文件获取完整MCP配置参数。
 
-### 6.1 路由关键词配置
+### 10.1 路由关键词配置
 
 | 类型 | 关键词 |
 |------|--------|
@@ -301,21 +758,64 @@ if topic_type == "medical":
 
 ---
 
-## 7. 开发计划
+## 11. 开发计划
 
 | 阶段 | 目标 | 交付物 |
 |------|------|--------|
 | **MVP** | 核心研究流程 | Routing Layer + Researcher Skill(SCAN) + 3核心MCP |
 | **P1** | 完整写作验证 | Writer Skill(3风格) + Validator Skill + knows-mcp |
-| **P2** | 优化迭代 | 并行性能优化 + 缓存 + 更多领域路由 |
+| **P2** | 系统可靠性 | MCP Check Skill + 配置同步 + 故障降级 (v0.6) |
+| **P3** | 安全加固 | 环境变量管理 + 配置分离 + 安全审查 (v0.7) |
+| **P4** | 技能集成 | mcp-check集成 + 协同机制 + 自动化检查 (v0.8) |
+| **P5** | 输出管理 | 统一输出目录 + 文件管理 + 清理策略 (v0.9) |
 
 > **Skills开发参考**: 使用 `skill` 工具加载 `building-skills` 获取标准结构和命名规范
 
 ---
 
-## 8. 附录：MCP调用示例
+## 12. 项目结构（v0.9更新）
 
-### 8.1 医学研究场景：RMC6236联合用药研究
+```
+advance_get_biji_skills/
+├── SKILL.md                    # 系统统一接口定义
+├── README.md                   # 项目说明文档
+├── design.md                   # 设计文档（当前版本）
+├── design_v*.md                # 历史版本
+├── mcp_toolkits.json          # MCP配置参考
+├── .env                       # 环境变量（本地，不提交）
+├── .env.example               # 环境变量模板
+├── generated_reports/         # [NEW] 生成的报告目录
+│
+└── .agents/skills/
+    ├── mcp-check/                     # MCP诊断检查
+    │   ├── SKILL.md                   # 5服务快速诊断
+    │   ├── mcp.json                   # MCP服务配置
+    │   └── reference/
+    │       ├── troubleshoot.md        # 故障排查指南
+    │       └── start_mcp_services.sh  # 安全启动脚本
+    │
+    ├── getbiji-researcher-skill/      # 研究技能
+    │   ├── SKILL.md                   # SCAN研究框架
+    │   ├── mcp.json                   # 5个MCP绑定（v0.6已同步配置）
+    │   └── reference/
+    │       └── routing-rules.md       # 路由规则
+    │
+    ├── getbiji-writer-skill/          # 写作技能
+    │   ├── SKILL.md                   # 3种风格模板
+    │   ├── mcp.json                   # 2个MCP绑定（v0.6已同步配置）
+    │   └── reference/
+    │       └── style-guide.md         # 风格指南
+    │
+    └── getbiji-validator-skill/       # 验证技能
+        ├── SKILL.md                   # 主张验证流程
+        └── mcp.json                   # 3个MCP绑定（v0.6已同步配置）
+```
+
+---
+
+## 13. 附录：MCP调用示例
+
+### 13.1 医学研究场景：RMC6236联合用药研究
 
 ```
 用户问题: "RMC6236联合用药的临床数据如何？RVMD官方推荐埃万妥双抗、德曲妥珠联合6236
@@ -343,9 +843,10 @@ if topic_type == "medical":
 - PubMed已发表联合用药数据
 - 病友社区实际使用反馈（如有）
 - 证据置信度评级
+- 输出文件: generated_reports/research_[timestamp]_RMC6236联合用药.md
 ```
 
-### 8.2 技术研究场景
+### 13.2 技术研究场景
 
 ```
 用户问题: "基于我的笔记，分析限流方案风险并写博客"
@@ -361,10 +862,11 @@ if topic_type == "medical":
 3. [可选] Tavily.search("rate limiting production patterns")
 
 融合后交给Writer Skill(科普风格)生成博客
+输出文件: generated_reports/writing_[timestamp]_科普_限流方案风险.md
 ```
 
 ---
 
-**文档版本**: v0.5  
+**文档版本**: v0.9  
 **更新日期**: 2026-01-15  
-**主要变更**: 更新示例为RMC6236联合用药临床研究场景
+**主要变更**: 新增输出文件管理规范，统一生成报告目录

@@ -14,19 +14,20 @@
         "get_notebook_mcp_server"
       ],
       "env": {
-        "GET_KNOWLEDGE_BASES": "[{\"id\":\"demo_group\",\"name\":\"sam的知识库\",\"config\":{\"api_key\":\"D6QLVQP3EmXw4WIjS4QrUBmcy/lX1E/FVoWMKGS9MRX8l9mjUJDGDfp4vUT3ZWvGltGtDT0BRn7LJMvQC+oU+H3iziJ/Cqhj4g==\",\"topics\":[{\"id\":\"sam_clinical_data\",\"name\":\"01个人病情记录\",\"topic_id\":\"EJlN5KBY\"},{\"id\":\"kb_pancreatic_trials\",\"name\":\"肿瘤临床试验知识库\",\"topic_id\":\"RYk1kmRJ\"},{\"id\":\"kb_patient_experience\",\"name\":\"小胰宝病友经验信息\",\"topic_id\":\"mnyV9OjY\"}]}}]"
+        "GET_KNOWLEDGE_BASES": "${GET_KNOWLEDGE_BASES}"
       }
     },
     "pubmed-data-server": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/qinxiaoqiang/Downloads/mcp-pubmed-server-pancrpal/src/index.js"
+        "-y",
+        "mcp-pubmed-llm-server"
       ],
       "env": {
         "ABSTRACT_MODE": "deep",
         "FULLTEXT_MODE": "enabled",
-        "PUBMED_API_KEY": "9c1f5cb4ff62971cf4b383e944913da50808",
-        "PUBMED_EMAIL": "qinxiaoqiang@gmail.com"
+        "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+        "PUBMED_EMAIL": "${PUBMED_EMAIL}"
       }
     },
     "mcp-pubmed-llm-server": {
@@ -38,7 +39,7 @@
     "metaso": {
       "url": "https://metaso.cn/api/mcp",
       "headers": {
-        "Authorization": "Bearer mk-8477E39D1CE97AAB3432EED9306E02F2"
+        "Authorization": "Bearer ${METASO_API_KEY}"
       }
     },
     "knows-mcp": {
@@ -49,8 +50,8 @@
       ],
       "env": {
         "DEFAULT_DATA_SCOPE": "GUIDE,PAPER,MEETING, PAPER_CN",
-        "KNOWS_API_BASE_URL": "https://api.nullht.com",
-        "KNOWS_API_KEY": "a6d9ce8081ac4d8cbcd772adafb75bca",
+        "KNOWS_API_BASE_URL": "${KNOWS_API_BASE_URL}",
+        "KNOWS_API_KEY": "${KNOWS_API_KEY}",
         "LOG_LEVEL": "info"
       }
     },
@@ -61,7 +62,7 @@
         "tavily-mcp@0.1.4"
       ],
       "env": {
-        "TAVILY_API_KEY": "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"
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
       }
     },
     "time": {
@@ -72,13 +73,13 @@
       ]
     },
     "ollama_web_search_and_fetch": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "run",
+        "python",
         "/Users/qinxiaoqiang/Downloads/ollama_websearch_mcp/web-search-mcp.py"
       ],
       "env": {
-        "OLLAMA_API_KEY": "981a09f507af455c87f60f3d3960905c.CKJ7-bAS2yBRszzvTewylRMC"
+        "OLLAMA_API_KEY": "${OLLAMA_API_KEY}"
       }
     },
     "bingcn": {
