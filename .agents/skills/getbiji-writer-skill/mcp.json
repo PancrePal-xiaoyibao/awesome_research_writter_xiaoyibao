@@ -1,0 +1,17 @@
+{
+  "get-notes-multi-kbs": {
+    "command": "npx",
+    "args": ["-y", "get_notebook_mcp_server"],
+    "env": {
+      "GET_KNOWLEDGE_BASES": "${GET_KNOWLEDGE_BASES}"
+    },
+    "includeTools": ["searchNotes", "getNoteById"]
+  },
+  "metaso": {
+    "url": "https://metaso.cn/api/mcp",
+    "headers": {
+      "Authorization": "Bearer ${METASO_API_KEY}"
+    },
+    "includeTools": ["search"]
+  }
+}

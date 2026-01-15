@@ -1,0 +1,91 @@
+{
+"mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "get-notes-multi-kbs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "get_notebook_mcp_server"
+      ],
+      "env": {
+        "GET_KNOWLEDGE_BASES": "[{\"id\":\"demo_group\",\"name\":\"sam的知识库\",\"config\":{\"api_key\":\"D6QLVQP3EmXw4WIjS4QrUBmcy/lX1E/FVoWMKGS9MRX8l9mjUJDGDfp4vUT3ZWvGltGtDT0BRn7LJMvQC+oU+H3iziJ/Cqhj4g==\",\"topics\":[{\"id\":\"sam_clinical_data\",\"name\":\"01个人病情记录\",\"topic_id\":\"EJlN5KBY\"},{\"id\":\"kb_pancreatic_trials\",\"name\":\"肿瘤临床试验知识库\",\"topic_id\":\"RYk1kmRJ\"},{\"id\":\"kb_patient_experience\",\"name\":\"小胰宝病友经验信息\",\"topic_id\":\"mnyV9OjY\"}]}}]"
+      }
+    },
+    "pubmed-data-server": {
+      "command": "node",
+      "args": [
+        "/Users/qinxiaoqiang/Downloads/mcp-pubmed-server-pancrpal/src/index.js"
+      ],
+      "env": {
+        "ABSTRACT_MODE": "deep",
+        "FULLTEXT_MODE": "enabled",
+        "PUBMED_API_KEY": "9c1f5cb4ff62971cf4b383e944913da50808",
+        "PUBMED_EMAIL": "qinxiaoqiang@gmail.com"
+      }
+    },
+    "mcp-pubmed-llm-server": {
+      "command": "npx",
+      "args": [
+        "mcp-pubmed-llm-server"
+      ]
+    },
+    "metaso": {
+      "url": "https://metaso.cn/api/mcp",
+      "headers": {
+        "Authorization": "Bearer mk-8477E39D1CE97AAB3432EED9306E02F2"
+      }
+    },
+    "knows-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "knows-mcp-server"
+      ],
+      "env": {
+        "DEFAULT_DATA_SCOPE": "GUIDE,PAPER,MEETING, PAPER_CN",
+        "KNOWS_API_BASE_URL": "https://api.nullht.com",
+        "KNOWS_API_KEY": "a6d9ce8081ac4d8cbcd772adafb75bca",
+        "LOG_LEVEL": "info"
+      }
+    },
+    "Tavily": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "tavily-mcp@0.1.4"
+      ],
+      "env": {
+        "TAVILY_API_KEY": "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"
+      }
+    },
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time",
+        "--local-timezone=Asia/Shanghai"
+      ]
+    },
+    "ollama_web_search_and_fetch": {
+      "command": "uv",
+      "args": [
+        "run",
+        "/Users/qinxiaoqiang/Downloads/ollama_websearch_mcp/web-search-mcp.py"
+      ],
+      "env": {
+        "OLLAMA_API_KEY": "981a09f507af455c87f60f3d3960905c.CKJ7-bAS2yBRszzvTewylRMC"
+      }
+    },
+    "bingcn": {
+      "command": "npx",
+      "args": [
+        "bing-cn-mcp"
+      ]
+    }
+  }   
+}
