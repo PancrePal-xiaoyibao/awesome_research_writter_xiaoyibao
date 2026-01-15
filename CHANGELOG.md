@@ -39,6 +39,12 @@
 #### 技能名称规范化
 - 将技能名称从 `getbiji-*` 改为 `awesome-*`
 - 更新所有相关引用和文档
+- **新命名规范**：
+  - `awesome-researcher-skill`: 深度研究分析
+  - `awesome-writer-skill`: 多风格内容生成
+  - `awesome-validator-skill`: 内容验证质量控制
+  - `mcp-check`: MCP 服务检查（保持不变）
+- **废弃说明**：旧的 `getbiji-*` 前缀已弃用，请使用新的 `awesome-*` 前缀
 
 #### 输出路径优化
 - 将输出路径从绝对路径改为相对路径 `./generated_reports/`

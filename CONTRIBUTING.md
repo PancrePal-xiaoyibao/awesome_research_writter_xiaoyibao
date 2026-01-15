@@ -157,7 +157,11 @@ feature/
 
 ### 命名规范
 
-- **技能名称**: 使用 kebab-case (例如: `getbiji-researcher-skill`)
+- **技能名称**: 使用 kebab-case，新技能应使用 `awesome-*` 前缀
+  - ✅ `awesome-researcher-skill` 
+  - ✅ `awesome-writer-skill`
+  - ✅ `awesome-validator-skill`
+  - ❌ ~~`getbiji-researcher-skill`~~ (已废弃)
 - **文件名**: 使用 kebab-case (例如: `start_mcp_services.sh`)
 - **变量名**: 使用 camelCase (例如: `outputPath`)
 - **常量**: 使用 UPPER_SNAKE_CASE (例如: `DEFAULT_TIMEOUT`)

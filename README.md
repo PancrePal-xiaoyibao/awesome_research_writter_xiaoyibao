@@ -113,13 +113,20 @@ cd .agents/skills/mcp-check/reference
 
 ### 写作任务
 
+使用 `awesome-writer-skill` 生成多风格内容：
 ```bash
 # 示例：生成科普文章
-@awesome-writer-skill "写一篇关于[主题]的科普文章，使用科普风格"
+@awesome-writer-skill "基于研究结果，写一篇关于[主题]的科普文章"
 ```
+
+**支持的写作风格**：
+- 🎓 专业风格：学术论文、技术文档
+- 📖 科普风格：博客文章、分享内容  
+- ⚡ 极简风格：社交媒体、摘要总结
 
 ### 验证任务
 
+使用 `awesome-validator-skill` 确保输出质量：
 ```bash
 # 示例：验证内容准确性
 @awesome-validator-skill "验证以下内容的准确性：[内容文本]"
