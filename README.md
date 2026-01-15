@@ -108,7 +108,7 @@ cd .agents/skills/mcp-check/reference
 
 ```bash
 # 示例：基于个人笔记研究主题
-@awesome-research-skill "基于我的笔记，分析[主题]的临床数据"
+@awesome-researcher-skill "基于我的笔记，分析[主题]的临床数据"
 ```
 
 ### 写作任务
